@@ -51,10 +51,11 @@
 #define led_pin 0
 #define radio_pin 7
 
-#define the_long 1322
-#define the_short 344
-#define the_space 344
-#define the_marker 2808
+#define the_long 1250
+#define the_short 250
+#define the_space 250
+#define the_marker 2500
+#define the_pause 10000
 
 static inline void writePulse(int pin, unsigned int length)
 {
@@ -79,6 +80,13 @@ static inline void writeMarker(int pin)
     writePulse(pin, the_marker);
 }
 
+static inline void writePause(int pin)
+{
+    digitalWrite(pin, HIGH);
+    delayMicroseconds(the_space);
+    writePulse(pin, the_pause);
+}
+
 uint64_t signal(uint unit, uint on)
 {
     uint unit_code = unit1_code;
@@ -92,8 +100,9 @@ uint64_t signal(uint unit, uint on)
 
 void sendNumber(int pin, uint64_t num, int reps)
 {
-    for (int i = 63; i >= 0; i--)
+    for (int i = 0; i < reps; i++)
     {
+        writePause(pin);
         writeMarker(pin);
         for (int j = 63; j >= 0; j--)
         {
@@ -103,8 +112,9 @@ void sendNumber(int pin, uint64_t num, int reps)
                 writePulse(pin, the_short);
             }
         }
-        digitalWrite(pin, LOW);
     }
+    writePause(pin);
+    digitalWrite(pin, LOW);
 }
 
 int main(int argc, char* argv[])
@@ -112,23 +122,7 @@ int main(int argc, char* argv[])
   wiringPiSetup () ;
   pinMode (led_pin, OUTPUT) ;
   pinMode (radio_pin, OUTPUT) ;
-
-  /*for (;;)*/
-  /*{*/
-    /*writePulse(radio_pin, 50000);*/
-    /*writePulse(led_pin, 50000);*/
-  /*}*/
-
-  uint64_t i2 = 0x8787878787878787LL;
-
-  for (int i = 63; i >= 0; i--)
-  {
-      if ((i2>>i) & 0x1) {
-          printf("long\n");
-      } else {
-          printf("short\n");
-      }
-  }
+  digitalWrite(led_pin, HIGH);
 
   for (int i = 0; i < argc; i++) {
       char* arg = argv[i];
@@ -136,20 +130,21 @@ int main(int argc, char* argv[])
       printf("%lx\n", hej);
   }
 
-  /*for (;;)*/
-  /*{*/
-    /*writeUltra(radio_pin, 500000);*/
-    /*writeUltra(led_pin, 500000);*/
-  /*}*/
+  int unit = atoi(argv[1]);
+  int on = atoi(argv[2]);
 
-  printf("%lx\n", base_code);
+  uint64_t signal_ = signal(unit, on);
+  printf("%lx\n", signal_);
+  sendNumber(radio_pin, signal_, 5);
 
-  printf("%lx\n", signal(1,1));
-  printf("%lx\n", signal(1,0));
-  printf("%lx\n", signal(2,1));
-  printf("%lx\n", signal(2,0));
-  printf("%lx\n", signal(3,1));
-  printf("%lx\n", signal(3,0));
+  /*printf("%lx\n", signal(1,1));*/
+  /*printf("%lx\n", signal(1,0));*/
+  /*printf("%lx\n", signal(2,1));*/
+  /*printf("%lx\n", signal(2,0));*/
+  /*printf("%lx\n", signal(3,1));*/
+  /*printf("%lx\n", signal(3,0));*/
 
+  digitalWrite(led_pin, LOW);
+  digitalWrite(radio_pin, LOW);
   return 0 ;
 }
