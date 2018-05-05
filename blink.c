@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/file.h>
+#include <unistd.h>
 #include <wiringPi.h>
 
 // 5v:         red
@@ -48,6 +50,8 @@
 #define PULSE_WIDTH 250
 #define PULSE_WIDTH_WIDE 1250
 
+#define LOCK_FILE "/dev/shm/radio.lock"
+
 static inline void writePulse(int pin, unsigned int length)
 {
     digitalWrite(pin, LOW);
@@ -64,6 +68,22 @@ static inline void writeMarker(int pin)
 static inline void writePause(int pin)
 {
     writePulse(pin, PULSE_WIDTH * 40);
+}
+
+/* mutex to allow only one process at a time, I'm pretty sure I bricked one
+ * unit by sending two codes at once! */
+int aquire_lock()
+{
+    int i = 0, lock = -1, f = -1;
+    while (i < 20 && lock != 0) {
+        f = open(LOCK_FILE, O_CREAT|O_RDWR, 0600);
+        if (f > 0)
+            lock = flock(f, LOCK_EX|LOCK_NB);
+        if (lock != 0)
+            sleep(1);
+        i++;
+    }
+    return lock;
 }
 
 void sendNumber(int pin, uint64_t num, int reps)
@@ -102,6 +122,11 @@ int usage(char* execName, int fail)
 
 int main(int argc, char* argv[])
 {
+  int lock = aquire_lock();
+  if (lock) {
+      printf("Failed to aquire lock\n");
+      return 1;
+  }
   wiringPiSetup () ;
   pinMode (LED_PIN, OUTPUT) ;
   pinMode (RADIO_PIN, OUTPUT) ;
